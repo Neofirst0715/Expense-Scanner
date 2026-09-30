@@ -4,17 +4,7 @@ import { IMAGES, CATEGORIES } from '../constants';
 import { Category, Expense } from '../types';
 
 const ICON_MAP: Record<string, any> = {
-  Utensils,
-  Car,
-  Home,
-  Smartphone,
-  Plane,
-  HeartPulse,
-  BookOpen,
-  Dumbbell,
-  CircleEllipsis,
-  Coffee,
-  Film,
+  Utensils, Car, Home, Smartphone, Plane, HeartPulse, BookOpen, Dumbbell, CircleEllipsis, Coffee, Film,
 };
 
 interface DashboardProps {
@@ -28,13 +18,12 @@ interface DashboardProps {
 
 export default function Dashboard({ expenses, onImport, onSeeAll, onNotificationClick, onAvatarClick, onExpenseClick }: DashboardProps) {
   const [isMonthDropdownOpen, setIsMonthDropdownOpen] = useState(false);
-  
+
   const months = useMemo(() => {
     const result = [];
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth();
-
     for (let year = currentYear; year >= 2000; year--) {
       const startMonth = year === currentYear ? currentMonth : 11;
       for (let month = startMonth; month >= 0; month--) {
@@ -49,8 +38,6 @@ export default function Dashboard({ expenses, onImport, onSeeAll, onNotification
 
   const filteredExpenses = useMemo(() => {
     const [monthStr, yearStr] = selectedMonth.split(' ');
-    // Sort expenses by date desc before slicing if you want to show most recent ones 
-    // although they come sorted from API usually
     return expenses.filter(exp => {
       const expDate = new Date(exp.date);
       const expMonthStr = expDate.toLocaleDateString('en-US', { month: 'short' });
@@ -69,10 +56,10 @@ export default function Dashboard({ expenses, onImport, onSeeAll, onNotification
 
     const sorted = Object.entries(categoryTotals)
       .sort(([, a], [, b]) => (b as number) - (a as number))
-      .map(([category, amount]) => ({ 
-        category: category as Category, 
-        amount: amount as number, 
-        percentage: total > 0 ? ((amount as number) / total) * 100 : 0 
+      .map(([category, amount]) => ({
+        category: category as Category,
+        amount: amount as number,
+        percentage: total > 0 ? ((amount as number) / total) * 100 : 0
       }));
 
     let currentPercentage = 0;
@@ -84,8 +71,8 @@ export default function Dashboard({ expenses, onImport, onSeeAll, onNotification
       return `${color} ${start}% ${end}%`;
     });
 
-    const gradient = gradientParts.length > 0 
-      ? `conic-gradient(${gradientParts.join(', ')})` 
+    const gradient = gradientParts.length > 0
+      ? `conic-gradient(${gradientParts.join(', ')})`
       : 'conic-gradient(#f1f5f9 0% 100%)';
 
     return { totalAmount: total, sortedCategories: sorted, conicGradient: gradient };
@@ -93,18 +80,16 @@ export default function Dashboard({ expenses, onImport, onSeeAll, onNotification
 
   return (
     <div className="flex flex-col gap-6 p-5 pb-24 no-scrollbar">
-      <header className="flex items-center justify-between">
-        <button 
+
+      {/* Header — 下移10px */}
+      <header className="flex items-center justify-between mt-[10px]">
+        <button
           onClick={onAvatarClick}
           className="flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-200 overflow-hidden ring-2 ring-white shadow-sm hover:opacity-80 transition-opacity cursor-pointer"
         >
           <img src={IMAGES.AVATAR} alt="User" className="size-full object-cover" referrerPolicy="no-referrer" />
         </button>
-        <div className="flex flex-col items-center">
-          <h2 className="text-slate-900 text-base font-bold leading-tight tracking-tight">Dashboard</h2>
-          <span className="text-xs font-medium text-slate-500">Good Morning, Alex</span>
-        </div>
-        <button 
+        <button
           onClick={onNotificationClick}
           className="flex size-10 items-center justify-center rounded-full bg-white shadow-sm border border-slate-100 text-slate-600 relative hover:bg-slate-50 transition-colors"
         >
@@ -113,6 +98,7 @@ export default function Dashboard({ expenses, onImport, onSeeAll, onNotification
         </button>
       </header>
 
+      {/* Total Spent */}
       <div className="flex flex-col items-center justify-center gap-2 rounded-3xl p-6 bg-white shadow-soft border border-slate-100">
         <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider">Total Spent</p>
         <h1 className="text-slate-900 text-4xl font-extrabold tracking-tight">${totalAmount.toFixed(2)}</h1>
@@ -122,11 +108,12 @@ export default function Dashboard({ expenses, onImport, onSeeAll, onNotification
         </div>
       </div>
 
+      {/* Breakdown */}
       <div className="flex flex-col gap-4 rounded-3xl p-6 bg-white shadow-soft border border-slate-100 relative">
         <div className="flex items-center justify-between">
           <h3 className="text-slate-900 text-lg font-bold">Breakdown</h3>
           <div className="relative">
-            <button 
+            <button
               onClick={() => setIsMonthDropdownOpen(!isMonthDropdownOpen)}
               className="flex items-center gap-1 text-primary text-sm font-semibold hover:bg-primary/5 px-2 py-1 rounded-lg transition-colors"
             >
@@ -135,9 +122,9 @@ export default function Dashboard({ expenses, onImport, onSeeAll, onNotification
             {isMonthDropdownOpen && (
               <div className="absolute top-full right-0 mt-2 w-40 max-h-60 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-100 py-2 z-50">
                 {months.map(opt => (
-                  <button 
-                    key={opt} 
-                    onClick={() => { setSelectedMonth(opt); setIsMonthDropdownOpen(false); }} 
+                  <button
+                    key={opt}
+                    onClick={() => { setSelectedMonth(opt); setIsMonthDropdownOpen(false); }}
                     className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 flex justify-between items-center"
                   >
                     <span className={selectedMonth === opt ? 'font-bold text-primary' : 'font-medium text-slate-700'}>{opt}</span>
@@ -148,7 +135,7 @@ export default function Dashboard({ expenses, onImport, onSeeAll, onNotification
             )}
           </div>
         </div>
-        
+
         {isMonthDropdownOpen && (
           <div className="fixed inset-0 z-40" onClick={() => setIsMonthDropdownOpen(false)} />
         )}
@@ -165,7 +152,7 @@ export default function Dashboard({ expenses, onImport, onSeeAll, onNotification
             </div>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-2 gap-3 mt-2 relative z-10">
           {sortedCategories.slice(0, 4).map((item) => (
             <div key={item.category} className="flex items-center gap-2">
@@ -179,7 +166,8 @@ export default function Dashboard({ expenses, onImport, onSeeAll, onNotification
         </div>
       </div>
 
-      <button 
+      {/* Import Button */}
+      <button
         onClick={onImport}
         className="group relative flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl h-14 bg-primary text-white shadow-lg shadow-primary/30 transition-all active:scale-[0.98] hover:shadow-primary/40"
       >
@@ -191,10 +179,11 @@ export default function Dashboard({ expenses, onImport, onSeeAll, onNotification
         </div>
       </button>
 
+      {/* Recent Expenses */}
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between px-1">
           <p className="text-slate-900 text-lg font-bold">Recent Expenses</p>
-          <button 
+          <button
             onClick={onSeeAll}
             className="flex items-center gap-0.5 text-sm font-bold text-primary hover:bg-primary/5 px-2 py-1 rounded-lg transition-colors"
           >
@@ -220,6 +209,7 @@ export default function Dashboard({ expenses, onImport, onSeeAll, onNotification
           })}
         </div>
       </div>
+
     </div>
   );
 }

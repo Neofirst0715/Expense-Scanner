@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
 import { Search, ChevronDown, Check, Plus, X, Utensils, Car, Home, Smartphone, Plane, HeartPulse, BookOpen, Dumbbell, CircleEllipsis, Coffee, Film } from 'lucide-react';
 import { CATEGORIES } from '../constants';
 import { Expense } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { DeleteModal } from './Modals';
+import { useState, useMemo, useRef } from 'react';
 
 function parseExpenseDate(raw: string): Date | null {
   if (!raw) return null;
@@ -52,7 +52,7 @@ export default function History({ expenses, deleteExpense, onAddClick, onExpense
   const [swipedExpenseId, setSwipedExpenseId] = useState<string | null>(null);
 
   const timeOptions = useMemo(() => {
-    const result = [];
+    const result = ['All Time'];
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth();
@@ -68,6 +68,7 @@ export default function History({ expenses, deleteExpense, onAddClick, onExpense
   }, []);
 
   const [selectedTime, setSelectedTime] = useState(timeOptions[0]);
+  const draggedRef = useRef(false);
 
   const categoryOptions = ['All Categories', ...Object.keys(CATEGORIES)];
 
@@ -81,7 +82,8 @@ export default function History({ expenses, deleteExpense, onAddClick, onExpense
     if (!expDate) return false;
     const expMonthStr = expDate.toLocaleDateString('en-US', { month: 'short' });
     const expYearStr = expDate.getFullYear().toString();
-    const matchesTime = expMonthStr === monthStr && expYearStr === yearStr;
+  const matchesTime = selectedTime === 'All Time' ? true : 
+    (expMonthStr === monthStr && expYearStr === yearStr);
 
     return matchesCategory && matchesSearch && matchesTime;
   });
@@ -95,8 +97,8 @@ export default function History({ expenses, deleteExpense, onAddClick, onExpense
   };
 
   return (
-    <div className="flex flex-col h-full bg-background-light">
-      <header className="flex items-center px-4 py-3 justify-between sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100 h-[60px]">
+    <div className="flex flex-col h-full bg-white">
+、      <header className="flex items-center px-4 py-3 justify-between sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100 h-[60px] mt-[30px]">
         <AnimatePresence mode="wait">
           {!isSearchOpen ? (
             <motion.div 
@@ -221,7 +223,7 @@ export default function History({ expenses, deleteExpense, onAddClick, onExpense
         )}
       </div>
 
-      <main className="flex-1 flex flex-col overflow-y-auto pb-24 overflow-x-hidden">
+      <main className="flex-1 flex flex-col overflow-y-auto pb-24 overflow-x-hidden no-scrollbar">
         {filteredExpenses.length > 0 ? (
           <div className="pt-2">
             <div className="flex items-center justify-between px-4 py-2 bg-gray-50/90 sticky top-0 backdrop-blur-sm z-10 border-y border-gray-100">
@@ -247,28 +249,33 @@ export default function History({ expenses, deleteExpense, onAddClick, onExpense
                     </button>
                   </div>
                   
-                  <motion.div
-                    drag="x"
-                    dragConstraints={{ left: -90, right: 0 }}
-                    dragElastic={0.1}
-                    onDragEnd={(e, info) => {
-                      if (info.offset.x < -45) {
-                        setSwipedExpenseId(expense.id);
-                      } else {
-                        setSwipedExpenseId(null);
-                      }
-                    }}
-                    animate={{ x: isSwiped ? -90 : 0 }}
-                    transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-                    onClick={() => {
-                      if (isSwiped) {
-                        setSwipedExpenseId(null);
-                      } else {
-                        onExpenseClick?.(expense);
-                      }
-                    }}
-                    className="relative flex items-center gap-4 px-4 py-4 bg-white hover:bg-gray-50 transition-colors cursor-pointer z-10"
-                  >
+                    <motion.div
+                      drag="x"
+                      dragConstraints={{ left: -90, right: 0 }}
+                      dragElastic={0.1}
+                      onDragStart={() => {
+                        draggedRef.current = true;
+                      }}
+                      onDragEnd={(e, info) => {
+                        if (info.offset.x < -45) {
+                          setSwipedExpenseId(expense.id);
+                        } else {
+                          setSwipedExpenseId(null);
+                        }
+                        setTimeout(() => { draggedRef.current = false; }, 100);
+                      }}
+                      animate={{ x: isSwiped ? -90 : 0 }}
+                      transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+                      onTap={() => {
+                        if (draggedRef.current) return;
+                        if (isSwiped) {
+                          setSwipedExpenseId(null);
+                        } else {
+                          onExpenseClick?.(expense);
+                        }
+                      }}
+                      className="relative flex items-center gap-4 px-4 py-4 bg-white hover:bg-gray-50 transition-colors cursor-pointer z-10"
+                    >
                     <div className="relative shrink-0 pointer-events-none">
                       <div className={`h-10 w-10 rounded-lg ${catMeta?.bg || expense.color} flex items-center justify-center ring-1 ring-black/5 ${catMeta?.color || 'text-slate-700'}`}>
                         <Icon size={20} />

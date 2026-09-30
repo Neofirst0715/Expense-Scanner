@@ -30,8 +30,9 @@ export default function Notifications({ onBack }: NotificationsProps) {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-background-light">
-      <header className="flex items-center px-4 py-3 sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100 h-[60px]">
+    <div className="flex flex-col h-full bg-white">
+        <div className="h-[50px] bg-white" />
+        <header className="flex items-center px-4 py-3 z-30 bg-white border-b border-gray-100 h-[60px]">
         <button 
           onClick={onBack}
           className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors text-slate-600"

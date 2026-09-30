@@ -48,16 +48,14 @@ app.get('/api/expenses', async (req, res) => {
 });
 
 app.post('/api/expenses', async (req, res) => {
-  const { merchant, category, date, amount, icon, color } = req.body;
-  
+  const { merchant, category, date, amount, icon, color, items } = req.body;
   const newExpense = {
-    merchant,
-    category,
-    date,
+    merchant, category, date,
     amount: Number(amount),
-    icon,
-    color
+    icon, color,
+    items: items || []
   };
+  console.log('Inserting items:', JSON.stringify(items));
 
   if (!supabase) {
     const fallbackExp = { id: Date.now().toString(), ...newExpense };
@@ -71,18 +69,18 @@ app.post('/api/expenses', async (req, res) => {
     .select()
     .single();
 
-  if (error) {
-    console.error('Error adding expense:', error);
-    return res.status(500).json({ error: error.message });
-  }
+if (error) {
+  console.error('Supabase insert error:', JSON.stringify(error, null, 2));
+  return res.status(500).json({ error: error.message });
+}
 
   res.status(201).json(data);
 });
 
 app.put('/api/expenses/:id', async (req, res) => {
   const { id } = req.params;
-  const { merchant, category, date, amount, icon, color } = req.body;
-  const updates = { merchant, category, date, amount: Number(amount), icon, color };
+  const { merchant, category, date, amount, icon, color, items } = req.body;
+  const updates = { merchant, category, date, amount: Number(amount), icon, color, items: items || [] };
 
   if (!supabase) {
     const idx = fallbackExpenses.findIndex(e => e.id === id);
@@ -98,10 +96,10 @@ app.put('/api/expenses/:id', async (req, res) => {
     .select()
     .single();
 
-  if (error) {
-    console.error('Error updating expense:', error);
-    return res.status(500).json({ error: error.message });
-  }
+if (error) {
+  console.error('Error adding expense FULL:', JSON.stringify(error, null, 2));
+  return res.status(500).json({ error: error.message, code: (error as any).code, details: (error as any).details });
+}
 
   res.json(data);
 });
@@ -129,8 +127,7 @@ app.delete('/api/expenses/:id', async (req, res) => {
 
 // ── Gemini fallback ─────────────────────────────────────────────────────────
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 async function callGemini(prompt: string, base64Image: string): Promise<string> {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
 
@@ -166,45 +163,56 @@ async function callGemini(prompt: string, base64Image: string): Promise<string> 
 
 // Proxy route for Ollama with automatic Gemini fallback
 app.post('/api/ollama/generate', async (req, res) => {
-  const OLLAMA_TIMEOUT_MS = 3000;
+  const OLLAMA_TIMEOUT_MS = 60000;
+   // ── Try Ollama Second ──────────────────────────────────────────────────────
+try {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
 
-  // ── Try Ollama first ──────────────────────────────────────────────────────
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
+  const ollamaRes = await fetch('http://localhost:11434/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req.body),
+    signal: controller.signal,
+  });
+  clearTimeout(timeoutId);
 
-    const ollamaRes = await fetch('http://localhost:11434/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (ollamaRes.ok) {
-      const data = await ollamaRes.json();
-      console.log('[AI] Served by Ollama');
-      return res.json(data);
-    }
-    // Non-2xx from Ollama → fall through to Gemini
-    console.warn(`[AI] Ollama returned ${ollamaRes.status}, falling back to Gemini`);
-  } catch (err: any) {
-    const reason = err.name === 'AbortError' ? 'timeout' : err.message;
-    console.warn(`[AI] Ollama unavailable (${reason}), falling back to Gemini`);
+  if (ollamaRes.ok) {
+    const data = await ollamaRes.json();
+    console.log('[AI] Served by Ollama');
+    return res.json(data);
   }
+  console.warn(`[AI] Ollama returned ${ollamaRes.status}, falling back to Gemini`);
+} catch (err: any) {
+  const reason = err.name === 'AbortError' ? 'timeout' : err.message;
+  console.warn(`[AI] Ollama unavailable (${reason}), falling back to Gemini`);
+}
 
-  // ── Fallback: Gemini ──────────────────────────────────────────────────────
-  try {
+try {
+  const { prompt, images } = req.body as { prompt: string; images: string[] };
+  const base64Image = images?.[0] ?? '';
+  const text = await callGemini(prompt, base64Image);
+  console.log('[AI] Served by Gemini');
+  return res.json({ response: text });
+} catch (err: any) {
+  console.error('[AI] Gemini fallback failed:', err.message);
+  return res.status(502).json({ error: `Both Ollama and Gemini failed: ${err.message}` });
+}
+
+   // ── Fallback: Gemini ──────────────────────────────────────────────────────
+    try {
     const { prompt, images } = req.body as { prompt: string; images: string[] };
     const base64Image = images?.[0] ?? '';
     const text = await callGemini(prompt, base64Image);
     console.log('[AI] Served by Gemini');
-    // Return Ollama-compatible shape so the frontend parser works unchanged
     return res.json({ response: text });
   } catch (err: any) {
-    console.error('[AI] Gemini fallback failed:', err.message);
-    return res.status(502).json({ error: `Both Ollama and Gemini failed: ${err.message}` });
+    console.error('[AI] Gemini failed:', err.message);
+    return res.status(502).json({ error: `Gemini failed: ${err.message}` });
   }
+
+ 
+
 });
 
 app.listen(PORT, () => {

@@ -113,7 +113,7 @@ export default function ScanningView({ onCancel, onResult }: ScanningViewProps) 
   }, [stopCamera, onResult]);
 
   return (
-    <div className="relative flex h-full min-h-screen w-full flex-col bg-black overflow-hidden">
+    <div className="relative flex h-full min-h-screen w-full flex-col bg-black overflow-hidden rounded-[50px]">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-5 pt-12 pb-4 bg-gradient-to-b from-black/70 to-transparent">
         <button
@@ -150,12 +150,12 @@ export default function ScanningView({ onCancel, onResult }: ScanningViewProps) 
 
         {/* Viewfinder overlay (only when camera is live) */}
         {phase === 'camera' && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none mb-16">
             {/* Darkened border */}
             <div className="absolute inset-0 bg-black/40" />
             {/* Receipt frame cutout */}
             <div
-              className="relative z-10 w-[78%] aspect-[3/4] rounded-2xl"
+              className="relative z-10 w-[88%] aspect-[3/5] rounded-2x1"
               style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)' }}
             >
               {/* Corner markers */}
@@ -174,7 +174,7 @@ export default function ScanningView({ onCancel, onResult }: ScanningViewProps) 
                 </div>
               </div>
             </div>
-            <p className="absolute bottom-32 text-white/80 text-sm font-medium text-center px-6 drop-shadow">
+            <p className="absolute bottom-42 text-white/80 text-sm font-medium text-center px-6 drop-shadow">
               Point camera at the <span className="text-blue-300 font-bold">total amount</span> on the receipt
             </p>
           </div>

@@ -5,15 +5,7 @@ import { Category, Expense } from '../types';
 import { DiscardModal, DuplicateModal } from './Modals';
 
 const ICON_MAP: Record<string, any> = {
-  Utensils,
-  Car,
-  Home,
-  Smartphone,
-  Plane,
-  HeartPulse,
-  BookOpen,
-  Dumbbell,
-  CircleEllipsis,
+  Utensils, Car, Home, Smartphone, Plane, HeartPulse, BookOpen, Dumbbell, CircleEllipsis,
 };
 
 interface InitialData {
@@ -22,6 +14,7 @@ interface InitialData {
   date?: string | null;
   confidence?: 'high' | 'medium' | 'low';
   imageDataUrl?: string;
+  items?: { name: string; quantity: number; price: number }[];
 }
 
 interface ReviewExpenseProps {
@@ -37,12 +30,10 @@ interface ReviewExpenseProps {
   preferScannedData?: boolean;
 }
 
-/** Convert a JS Date → "Apr 8, 2026" */
 function formatDisplayDate(d: Date): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-/** Convert "Apr 8, 2026" → "2026-04-08" (for <input type="date">) */
 function displayToInputValue(display: string): string {
   try {
     const d = new Date(display);
@@ -56,9 +47,7 @@ function displayToInputValue(display: string): string {
   }
 }
 
-/** Convert "2026-04-08" → "Apr 8, 2026" */
 function inputValueToDisplay(val: string): string {
-  // val is YYYY-MM-DD — parse as local date to avoid UTC shift
   const [y, m, d] = val.split('-').map(Number);
   return formatDisplayDate(new Date(y, m - 1, d));
 }
@@ -70,7 +59,6 @@ export default function ReviewExpense({ onSave, onCancel, onRescan, isNew = fals
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // When preferScannedData is true (rescan result), use initialData values over existingExpense
   const initCategory = (preferScannedData ? undefined : existingExpense?.category as Category) ?? existingExpense?.category as Category;
   const [selectedCategory, setSelectedCategory] = useState<Category>(
     initCategory && CATEGORIES[initCategory] ? initCategory : 'Food & Drink'
@@ -94,6 +82,12 @@ export default function ReviewExpense({ onSave, onCancel, onRescan, isNew = fals
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return inputValueToDisplay(raw);
     return raw;
   });
+
+  // ── Items state (editable) ──────────────────────────────────────────────
+  const [items, setItems] = useState<{ name: string; quantity: number; price: number }[]>(
+    initialData?.items || existingExpense?.items || []
+  );
+
   const [isSaving, setIsSaving] = useState(false);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -127,7 +121,8 @@ export default function ReviewExpense({ onSave, onCancel, onRescan, isNew = fals
         date: displayDate,
         amount: Number(amount),
         icon: catMeta.icon,
-        color: catMeta.bg
+        color: catMeta.bg,
+        items,
       };
       if (existingExpense && updateExpense) {
         await updateExpense(existingExpense.id, expenseData);
@@ -143,65 +138,72 @@ export default function ReviewExpense({ onSave, onCancel, onRescan, isNew = fals
     }
   };
 
-  // AI confidence badge (only when data came from scan)
   const confidence = initialData?.confidence;
   const hasScannedImage = !isNew && initialData?.imageDataUrl;
   const receiptThumb = hasScannedImage ? initialData!.imageDataUrl! : IMAGES.RECEIPT_THUMB;
 
   const handleDateRowClick = () => {
     setIsDatePickerOpen(true);
-    // Programmatically open the native date picker
     dateInputRef.current?.showPicker?.();
     dateInputRef.current?.click();
   };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.value) {
-      setDisplayDate(inputValueToDisplay(e.target.value));
-    }
+    if (e.target.value) setDisplayDate(inputValueToDisplay(e.target.value));
     setIsDatePickerOpen(false);
   };
 
-  return (
-    <div className="relative flex h-full min-h-screen w-full flex-col overflow-hidden bg-background-light">
-      <div className="flex items-center px-4 py-3 justify-between sticky top-0 z-10 bg-background-light/90 backdrop-blur-md">
-        <button 
+  const updateItem = (idx: number, field: 'name' | 'price' | 'quantity', value: string | number) => {
+    const updated = [...items];
+    updated[idx] = { ...updated[idx], [field]: value };
+    setItems(updated);
+  };
+
+  const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
+
+  const addItem = () => setItems([...items, { name: '', quantity: 1, price: 0 }]);
+
+return (
+  <div className="relative flex h-full min-h-screen w-full flex-col overflow-hidden bg-background-light">
+
+    <main className="flex-1 flex flex-col items-center px-4 pt-4 pb-8 w-full max-w-lg mx-auto overflow-y-auto no-scrollbar">
+      
+      {/* 关闭按钮 */}
+      <div className="w-full flex justify-start mb-2 mt-[10px]">
+        <button
           onClick={onCancel}
           className="flex size-10 items-center justify-center rounded-full hover:bg-slate-200 transition-colors text-slate-900"
         >
           <X size={24} />
         </button>
-        <h2 className="text-lg font-bold leading-tight flex-1 text-center pr-10">{isNew ? 'Add Expense' : existingExpense ? 'Edit Expense' : 'Review Expense'}</h2>
       </div>
 
-      <main className="flex-1 flex flex-col items-center px-4 pt-4 pb-8 w-full max-w-lg mx-auto">
-        <div className="w-full bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100">
-          <div className="flex flex-col items-center justify-center pt-8 pb-6 px-6 bg-gradient-to-b from-white to-slate-50 rounded-t-3xl">
-            {/* Receipt thumbnail — show for scanned or default review */}
-            {!isNew && (
-              <div className="mb-4 h-12 w-12 rounded-lg overflow-hidden shadow-sm border border-slate-200 relative bg-white group cursor-pointer">
-                <img 
-                  alt="Receipt Thumbnail" 
-                  className="object-cover w-full h-full opacity-90 group-hover:opacity-100 transition-opacity" 
-                  src={receiptThumb}
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                  <ZoomIn size={16} className="text-white drop-shadow-md" />
-                </div>
+      <div className="w-full bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100">
+        {/* Top section */}
+        <div className="flex flex-col items-center justify-center pt-8 pb-6 px-6 bg-gradient-to-b from-white to-slate-50 rounded-t-3xl">
+          {!isNew && (
+            <div className="mb-4 h-12 w-12 rounded-lg overflow-hidden shadow-sm border border-slate-200 relative bg-white group cursor-pointer">
+              <img
+                alt="Receipt Thumbnail"
+                className="object-cover w-full h-full opacity-90 group-hover:opacity-100 transition-opacity"
+                src={receiptThumb}
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                <ZoomIn size={16} className="text-white drop-shadow-md" />
               </div>
+            </div>
             )}
             <div className="relative flex items-center justify-center">
               <span className="text-3xl font-bold text-slate-400 mr-1">$</span>
-              <input 
-                type="number" 
-                className="text-5xl font-extrabold tracking-tight text-slate-900 bg-transparent border-none p-0 text-center focus:ring-0 w-[150px]" 
+              <input
+                type="number"
+                className="text-5xl font-extrabold tracking-tight text-slate-900 bg-transparent border-none p-0 text-center focus:ring-0 w-[150px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
               />
             </div>
-            {/* Confidence badge */}
             {!isNew && confidence && (
               <div className={`mt-3 flex items-center gap-1.5 px-3 py-1 rounded-full ${
                 confidence === 'high' ? 'bg-green-100 text-green-700' :
@@ -230,9 +232,9 @@ export default function ReviewExpense({ onSave, onCancel, onRescan, isNew = fals
               <div className="group relative p-2 transition-colors hover:bg-slate-50 rounded-xl">
                 <label className="text-[11px] uppercase tracking-wider font-bold text-slate-400 pl-3 mb-0.5 block">Merchant</label>
                 <div className="relative flex items-center">
-                  <input 
-                    className="w-full bg-transparent text-slate-900 border-0 p-0 pl-3 pr-10 text-lg font-semibold focus:ring-0 placeholder-slate-300" 
-                    type="text" 
+                  <input
+                    className="w-full bg-transparent text-slate-900 border-0 p-0 pl-3 pr-10 text-lg font-semibold focus:ring-0 placeholder-slate-300"
+                    type="text"
                     value={merchant}
                     onChange={(e) => setMerchant(e.target.value)}
                     placeholder="Enter merchant name"
@@ -247,7 +249,7 @@ export default function ReviewExpense({ onSave, onCancel, onRescan, isNew = fals
 
             {/* Category */}
             <div className="relative z-20">
-              <div 
+              <div
                 className="group relative p-2 transition-colors hover:bg-slate-50 rounded-xl cursor-pointer"
                 onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
               >
@@ -265,15 +267,14 @@ export default function ReviewExpense({ onSave, onCancel, onRescan, isNew = fals
                   </div>
                 </div>
               </div>
-              
               {isCategoryDropdownOpen && (
                 <div className="absolute top-full left-2 right-2 mt-1 bg-white rounded-xl shadow-xl border border-slate-100 py-2 z-50 max-h-60 overflow-y-auto">
                   {categoryOptions.map(opt => {
                     const Icon = ICON_MAP[CATEGORIES[opt].icon];
                     return (
-                      <button 
-                        key={opt} 
-                        onClick={() => { setSelectedCategory(opt); setIsCategoryDropdownOpen(false); }} 
+                      <button
+                        key={opt}
+                        onClick={() => { setSelectedCategory(opt); setIsCategoryDropdownOpen(false); }}
                         className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center"
                       >
                         <div className="flex items-center gap-3">
@@ -291,7 +292,7 @@ export default function ReviewExpense({ onSave, onCancel, onRescan, isNew = fals
               <div className="mx-4 h-px bg-slate-100"></div>
             </div>
 
-            {/* Date Picker */}
+            {/* Date */}
             <div className="relative z-10">
               <div
                 className="group relative p-2 transition-colors hover:bg-slate-50 rounded-xl cursor-pointer"
@@ -307,7 +308,6 @@ export default function ReviewExpense({ onSave, onCancel, onRescan, isNew = fals
                   </div>
                 </div>
               </div>
-              {/* Hidden native date input — visually invisible but functional */}
               <input
                 ref={dateInputRef}
                 type="date"
@@ -318,7 +318,54 @@ export default function ReviewExpense({ onSave, onCancel, onRescan, isNew = fals
                 max={new Date().toISOString().split('T')[0]}
               />
             </div>
-            
+
+            {/* ── Items (editable) ── */}
+            <div>
+              <div className="mx-4 h-px bg-slate-100 mt-2"></div>
+              <div className="p-2">
+                <div className="flex items-center justify-between pl-3 pr-1 mb-2">
+                  <label className="text-[11px] uppercase tracking-wider font-bold text-slate-400">
+                    Items ({items.length})
+                  </label>
+                  <button
+                    onClick={addItem}
+                    className="text-xs font-semibold text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors"
+                  >
+                    + Add
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {items.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 group">
+                      <input
+                        className="flex-1 text-sm font-medium text-slate-800 bg-transparent border-0 focus:ring-0 p-0 placeholder-slate-300"
+                        placeholder="Item name"
+                        value={item.name}
+                        onChange={(e) => updateItem(idx, 'name', e.target.value)}
+                      />
+                      <span className="text-sm text-slate-400">$</span>
+                      <input
+                        className="w-14 text-sm font-semibold text-slate-700 bg-transparent border-0 focus:ring-0 p-0 text-right placeholder-slate-300"
+                        placeholder="0.00"
+                        type="number"
+                        value={item.price || ''}
+                        onChange={(e) => updateItem(idx, 'price', Number(e.target.value))}
+                      />
+                      <button
+                        onClick={() => removeItem(idx)}
+                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all ml-1 flex-shrink-0"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  {items.length === 0 && (
+                    <p className="text-xs text-slate-400 pl-3 py-2">No items — tap + Add to add one</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {isCategoryDropdownOpen && (
               <div className="fixed inset-0 z-10" onClick={() => setIsCategoryDropdownOpen(false)} />
             )}
@@ -329,13 +376,9 @@ export default function ReviewExpense({ onSave, onCancel, onRescan, isNew = fals
           <button
             onClick={() => {
               if (!merchant || !amount) return;
-              // Only check duplicates when adding new (not updating existing)
               if (!existingExpense) {
                 const dup = findDuplicate();
-                if (dup) {
-                  setIsDuplicateModalOpen(true);
-                  return;
-                }
+                if (dup) { setIsDuplicateModalOpen(true); return; }
               }
               doSave();
             }}
@@ -373,7 +416,6 @@ export default function ReviewExpense({ onSave, onCancel, onRescan, isNew = fals
         onClose={() => setIsDiscardModalOpen(false)}
         onDiscard={onCancel}
       />
-
       <DuplicateModal
         isOpen={isDuplicateModalOpen}
         merchant={merchant}

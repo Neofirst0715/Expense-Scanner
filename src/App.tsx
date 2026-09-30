@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import PhoneFrame from './PhoneFrame';
 import { motion, AnimatePresence } from 'motion/react';
 import { View } from './types';
 import Navbar from './components/Navbar';
@@ -127,14 +128,15 @@ export default function App() {
             onRescan={() => { setScannedPayload(null); handleImport(); }}
             addExpense={addExpense}
             expenses={expenses}
-            initialData={scannedPayload ? {
-              merchant: scannedPayload.data.merchant,
-              amount: scannedPayload.data.amount,
-              date: scannedPayload.data.date ?? undefined,
-              confidence: scannedPayload.data.confidence,
-              imageDataUrl: scannedPayload.imageDataUrl,
-            } : undefined}
-          />
+          initialData={scannedPayload ? {
+            merchant: scannedPayload.data.merchant,
+            amount: scannedPayload.data.amount,
+            date: scannedPayload.data.date ?? undefined,
+            confidence: scannedPayload.data.confidence,
+            imageDataUrl: scannedPayload.imageDataUrl,
+            items: scannedPayload.data.items,
+          } : undefined}
+    />
         );
       case 'edit-expense':
         return (
@@ -152,6 +154,7 @@ export default function App() {
               date: scannedPayload.data.date ?? undefined,
               confidence: scannedPayload.data.confidence,
               imageDataUrl: scannedPayload.imageDataUrl,
+              items: scannedPayload.data.items,
             } : undefined}
             preferScannedData={!!scannedPayload}
           />
@@ -199,52 +202,54 @@ export default function App() {
   const showNavbar = ['home', 'history', 'settings'].includes(currentView);
 
   return (
-    <div className="relative flex h-full min-h-screen w-full flex-col max-w-md mx-auto bg-background-light overflow-x-hidden shadow-2xl">
-      <AnimatePresence mode="wait">
-        <motion.div
+    <PhoneFrame>
+      <div className="relative flex h-full w-full flex-col bg-background-light overflow-hidden justify-between">
+        <AnimatePresence mode="wait">
+          <motion.div
           key={currentView}
           initial={{ opacity: 0, x: 10 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -10 }}
           transition={{ duration: 0.2 }}
-          className="flex-1 flex flex-col h-full"
-        >
-          {renderView()}
-        </motion.div>
-      </AnimatePresence>
-
-      {showNavbar && (
-        <Navbar currentView={currentView} onViewChange={setCurrentView} />
-      )}
-
-      <SuccessModal 
-        isOpen={isSuccessModalOpen} 
-        onClose={handleSuccessClose} 
-        onScanAnother={handleScanAnother} 
-      />
-
-      <LogoutModal 
-        isOpen={isLogoutModalOpen}
-        onClose={() => setIsLogoutModalOpen(false)}
-        onLogout={() => {
-          setIsLogoutModalOpen(false);
-          showToast('Logged out successfully');
-          setCurrentView('home');
-        }}
-      />
-
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg"
+          className="flex-1 flex flex-col overflow-y-auto no-scrollbar"
           >
-            {toast}
+            {renderView()}
           </motion.div>
+        </AnimatePresence>
+
+        {showNavbar && (
+          <Navbar currentView={currentView} onViewChange={setCurrentView} />
         )}
-      </AnimatePresence>
-    </div>
+
+        <SuccessModal 
+          isOpen={isSuccessModalOpen} 
+          onClose={handleSuccessClose} 
+          onScanAnother={handleScanAnother} 
+        />
+
+        <LogoutModal 
+          isOpen={isLogoutModalOpen}
+          onClose={() => setIsLogoutModalOpen(false)}
+          onLogout={() => {
+            setIsLogoutModalOpen(false);
+            showToast('Logged out successfully');
+            setCurrentView('home');
+          }}
+        />
+
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg"
+            >
+              {toast}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </PhoneFrame>
   );
 }

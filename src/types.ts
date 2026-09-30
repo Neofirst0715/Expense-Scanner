@@ -9,6 +9,8 @@ export interface Expense {
   icon: string;
   color: string;
   isRecurring?: boolean;
+  items?: { name: string; quantity: number; price: number }[];
+
 }
 
 export type View = 'home' | 'history' | 'settings' | 'review' | 'scanning' | 'manual-add' | 'notifications' | 'edit-expense';

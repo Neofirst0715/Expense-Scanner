@@ -9,14 +9,10 @@ interface SettingsProps {
 export default function Settings({ onExport, onLogout }: SettingsProps) {
   return (
     <div className="flex flex-col h-full bg-background-light">
-      <header className="sticky top-0 z-20 flex items-center justify-center px-4 py-4 bg-white/80 backdrop-blur-md border-b border-slate-200/50">
-        <h1 className="text-lg font-bold tracking-tight text-slate-900">Settings & Profile</h1>
-      </header>
-
-      <main className="flex-1 px-4 pt-6 space-y-8 pb-24 overflow-y-auto">
+      <main className="flex-1 px-4 pt-14 space-y-8 pb-24 overflow-y-auto no-scrollbar">
         {/* Profile Section */}
         <section className="flex flex-col items-center justify-center">
-          <div className="relative mb-3">
+          <div className="relative mb-3" >
             <img src={IMAGES.AVATAR} alt="Profile" className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-sm" referrerPolicy="no-referrer" />
           </div>
           <h2 className="text-xl font-bold text-slate-900">Alex</h2>

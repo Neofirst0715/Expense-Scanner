@@ -2,6 +2,11 @@
  * ollamaService.ts
  * Calls a local Ollama API to extract receipt info from a base64-encoded image.
  */
+export interface ReceiptItem {
+  name: string;
+  quantity: number;
+  price: number;
+}
 
 export interface ReceiptData {
   merchant: string;
@@ -9,6 +14,7 @@ export interface ReceiptData {
   date: string | null;
   category?: string;
   confidence: 'high' | 'medium' | 'low';
+  items?: ReceiptItem[];
 }
 
 // Use the Express proxy to avoid CORS issues (browser → /api/ollama/generate → Express → Ollama)
@@ -59,7 +65,17 @@ async function compressImage(base64: string, maxWidth = 1024, quality = 0.7): Pr
 
 export async function analyzeReceipt(base64Image: string, _mimeType = 'image/jpeg'): Promise<ReceiptData> {
   const compressed = await compressImage(base64Image);
-  const prompt = "Extract merchant name, date, and category from this receipt. For the amount, find the TOTAL line (case-insensitive) and use the number on its right as the amount. Return JSON only with fields: merchant, amount, date, category. No explanation.";
+  const prompt = `Extract all information from this receipt. Return JSON only with these exact fields:
+{
+  "merchant": "store name",
+  "date": "date string", 
+  "category": "category",
+  "amount": 36.0,
+  "items": [
+    {"name": "item name", "quantity": 1, "price": 9.99}
+  ]
+}
+For amount use the TOTAL line. List every purchased product in items. No explanation, JSON only.`;
 
   const response = await fetch(OLLAMA_API_URL, {
     method: 'POST',
@@ -82,14 +98,21 @@ export async function analyzeReceipt(base64Image: string, _mimeType = 'image/jpe
   const data = await response.json();
 
   // qwen3 is a thinking model: Ollama puts output in `thinking` when `response` is empty
-  const text: string = data.response || data.thinking || '';
-  console.log('[Ollama] text source:', data.response ? 'response' : 'thinking');
+let rawText: string = data.response || '';
 
-  // Strip markdown code fences
-  let cleanedText = text.replace(/```(?:json)?\s*([\s\S]*?)```/gi, '$1');
-  // Strip <think>...</think> blocks (including unclosed ones)
-  cleanedText = cleanedText.replace(/<think>[\s\S]*?<\/think>/gi, '');
-  cleanedText = cleanedText.replace(/<think>[\s\S]*/gi, '');
+
+if (!rawText || !rawText.includes('{')) {
+  rawText = data.thinking || '';
+}
+
+console.log('[Ollama] text source:', data.response ? 'response' : 'thinking');
+console.log('[Ollama] raw response:', rawText.substring(0, 500));
+
+// Strip <think>...</think> blocks first，再找 JSON
+let cleanedText = rawText.replace(/<think>[\s\S]*?<\/think>/gi, '');
+cleanedText = cleanedText.replace(/<think>[\s\S]*/gi, '');
+// Strip markdown code fences
+cleanedText = cleanedText.replace(/```(?:json)?\s*([\s\S]*?)```/gi, '$1');
 
   const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
   const cleaned = jsonMatch ? jsonMatch[0] : '';
@@ -97,8 +120,13 @@ export async function analyzeReceipt(base64Image: string, _mimeType = 'image/jpe
   try {
     const parsed = JSON.parse(cleaned);
     const merchant: string = parsed.merchant || 'Unknown';
-    const rawCategory: string = parsed.category || '';
-    const category = rawCategory && rawCategory !== 'Unknown' ? rawCategory : inferCategory(merchant);
+    const VALID_CATEGORIES = [
+  'Food & Drink', 'Transport', 'Housing', 'Electronics',
+  'Travel', 'Healthcare', 'Education', 'Fitness', 'Other'
+];
+
+const rawCategory: string = parsed.category || '';
+const category = VALID_CATEGORIES.includes(rawCategory) ? rawCategory : inferCategory(merchant);
 
     return {
       merchant,
@@ -106,6 +134,7 @@ export async function analyzeReceipt(base64Image: string, _mimeType = 'image/jpe
       date: normalizeDate(parsed.date),
       category,
       confidence: 'high',
+      items: parsed.items || [],
     };
   } catch {
     throw new Error(`Failed to parse Ollama response: ${text}`);

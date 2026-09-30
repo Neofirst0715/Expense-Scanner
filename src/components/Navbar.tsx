@@ -14,8 +14,8 @@ export default function Navbar({ currentView, onViewChange }: NavbarProps) {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 mx-auto max-w-md bg-white/90 backdrop-blur-lg border-t border-slate-200 pb-safe">
-      <div className="flex items-center justify-around h-16 px-2">
+    <nav className="sticky bottom-0 w-full z-40 bg-white/90 backdrop-blur-lg border-t border-slate-200">
+      <div className="grid grid-cols-3 h-16 w-full">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = currentView === tab.id;
@@ -23,7 +23,7 @@ export default function Navbar({ currentView, onViewChange }: NavbarProps) {
             <button
               key={tab.id}
               onClick={() => onViewChange(tab.id as View)}
-              className={`flex flex-col items-center justify-center gap-1 w-16 transition-colors ${
+              className={`flex flex-col items-center justify-center gap-1 transition-colors ${
                 isActive ? 'text-primary' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
